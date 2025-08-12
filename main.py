@@ -10,7 +10,7 @@ from typing import Dict, Any
 sys.path.append(str(Path(__file__).parent))
 
 # Правильный импорт TradingBot
-from scr.managers.strategy_manager import TradingBot
+from scr.core.bot import TradingBot
 
 class ConfigError(Exception):
     pass

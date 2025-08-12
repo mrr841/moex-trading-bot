@@ -1,6 +1,7 @@
+# scr/core/bot.py
 import asyncio
 import logging
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 from dataclasses import dataclass
 from enum import Enum, auto
 
@@ -8,47 +9,53 @@ from ..data.data_handler import DataHandler
 from ..managers.strategy_manager import StrategyManager
 from ..managers.risk_manager import RiskManager
 from ..trading.trade_executor import TradeExecutor
-from .state_manager import StateManager
+from .state_manager import StateManager, BotState  # чтобы экспортировать BotState из этого модуля
 
 logger = logging.getLogger(__name__)
+
 
 class TradingMode(Enum):
     TRAIN = auto()
     PAPER = auto()
     REAL = auto()
 
+
 @dataclass
 class BotConfig:
-    tickers: list[str]
+    """Типизированный конфиг, используемый внутри бота."""
+    tickers: List[str]
     max_active_positions: int
     timeframe: str
     mode: TradingMode
 
+
 class TradingBot:
-    """Основной класс торгового бота"""
-    
+    """Основной класс торгового бота."""
+
     def __init__(self, config: Dict):
-        self.config = self._validate_config(config)
+        self.raw_config: Dict = config
+        self.config: BotConfig = self._validate_config(config)
+
         self.state = StateManager()
         self.data_handler: Optional[DataHandler] = None
         self.strategy_manager: Optional[StrategyManager] = None
         self.risk_manager: Optional[RiskManager] = None
         self.trade_executor: Optional[TradeExecutor] = None
-        
+
         self._shutdown_event = asyncio.Event()
         self._main_loop_task: Optional[asyncio.Task] = None
 
     def _validate_config(self, config: Dict) -> BotConfig:
-        """Проверка и преобразование конфигурации"""
         required_keys = {'tickers', 'max_active_positions', 'timeframe', 'mode'}
-        if not required_keys.issubset(config.keys()):
-            raise ValueError(f"Missing required config keys: {required_keys - config.keys()}")
-            
+        missing = required_keys - set(config.keys())
+        if missing:
+            raise ValueError(f"Missing required config keys: {missing}")
+
         try:
             mode = TradingMode[config['mode'].upper()]
-        except KeyError:
-            raise ValueError(f"Invalid trading mode: {config['mode']}")
-            
+        except Exception:
+            raise ValueError(f"Invalid trading mode: {config.get('mode')}")
+
         return BotConfig(
             tickers=config['tickers'],
             max_active_positions=config['max_active_positions'],
@@ -57,85 +64,75 @@ class TradingBot:
         )
 
     async def run(self) -> None:
-        """Основной цикл работы бота"""
         logger.info(f"Starting bot in {self.config.mode.name} mode")
-        
-        async with DataHandler(self.config) as self.data_handler, \
-                 TradeExecutor(self.config) as self.trade_executor:
-            
-            self.strategy_manager = StrategyManager(self.config, self.data_handler)
-            self.risk_manager = RiskManager(self.config)
-            
+
+        # Передаем data_handler во второй аргумент TradeExecutor
+        async with DataHandler(self.raw_config) as data_handler, \
+                   TradeExecutor(self.raw_config, data_handler) as trade_executor:
+
+            self.data_handler = data_handler
+            self.trade_executor = trade_executor
+
+            self.strategy_manager = StrategyManager(self.raw_config, self.data_handler)
+            self.risk_manager = RiskManager(self.raw_config)
+
             self._main_loop_task = asyncio.create_task(self._main_loop())
             await self._shutdown_event.wait()
-            
+
             logger.info("Bot shutdown completed")
 
     async def _main_loop(self) -> None:
-        """Цикл обработки данных и торговли"""
         try:
             while not self._shutdown_event.is_set():
-                # 1. Получение данных
                 market_data = await self._fetch_market_data()
-                
-                # 2. Анализ стратегии
                 signals = await self.strategy_manager.analyze(market_data)
-                
-                # 3. Проверка рисков
                 approved_signals = self.risk_manager.validate_signals(
-                    signals, 
-                    self.state.current_positions
+                    signals,
+                    self.state.positions
                 )
-                
-                # 4. Исполнение сделок
                 execution_results = await self.trade_executor.execute(approved_signals)
-                
-                # 5. Обновление состояния
-                self.state.update(execution_results)
-                
-                # 6. Пауза между итерациями
+                await self.state.update(execution_results)
                 await asyncio.sleep(self._get_loop_interval())
-                
         except Exception as e:
             logger.critical(f"Main loop failed: {str(e)}", exc_info=True)
             await self.shutdown()
 
     async def _fetch_market_data(self) -> Dict:
-        """Получение рыночных данных для всех тикеров"""
+        timeframe = self.config.timeframe
         tasks = [
-            self.data_handler.get_ticker_data(ticker, self.config.timeframe)
+            self.data_handler.get_ticker_data(ticker, timeframe)
             for ticker in self.config.tickers
         ]
-        return {
-            ticker: data 
-            for ticker, data in zip(
-                self.config.tickers, 
-                await asyncio.gather(*tasks)
-            )
-        }
+        results = await asyncio.gather(*tasks)
+        return {ticker: data for ticker, data in zip(self.config.tickers, results)}
 
     def _get_loop_interval(self) -> int:
-        """Определение интервала между итерациями"""
-        if self.config.timeframe.endswith('m'):
-            return int(self.config.timeframe[:-1]) * 60 // 2
-        return 60  # По умолчанию 1 минута
+        tf = self.config.timeframe
+        if isinstance(tf, str) and tf.endswith('m'):
+            try:
+                return int(tf[:-1]) * 60 // 2
+            except Exception:
+                return 60
+        return 60
 
     async def shutdown(self) -> None:
-        """Корректное завершение работы бота"""
         if not self._shutdown_event.is_set():
             logger.info("Shutdown initiated...")
             self._shutdown_event.set()
-            
+
             if self._main_loop_task:
                 self._main_loop_task.cancel()
                 try:
                     await self._main_loop_task
                 except asyncio.CancelledError:
                     pass
-                
+
             if self.trade_executor:
-                await self.trade_executor.close_all_positions()
-                
+                try:
+                    await self.trade_executor.close_all_positions()
+                except Exception as e:
+                    logger.exception("Error while closing positions during shutdown: %s", e)
+
             logger.info("Resources released")
 
     def __enter__(self):

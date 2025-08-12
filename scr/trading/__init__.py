@@ -1,11 +1,12 @@
 """
 Trading Module - исполнение торговых операций и управление ордерами
-
-Содержит:
-- Исполнитель торговых операций (TradeExecutor)
-- Модели ордеров и сделок
-- Адаптеры для разных брокеров
 """
+
+from enum import Enum
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Dict, List, Optional
+import logging
 
 from .trade_executor import (
     TradeExecutor,
@@ -13,13 +14,9 @@ from .trade_executor import (
     ExecutionReport,
     OrderStatus,
     OrderType,
-    BrokerType
+    BrokerType,
+    TradeError
 )
-
-from typing import Dict, List, Optional
-from enum import Enum
-import logging
-from dataclasses import dataclass
 
 __all__ = [
     'TradeExecutor',
@@ -32,39 +29,6 @@ __all__ = [
 ]
 
 __version__ = '1.3.0'
-
-class TradeError(Exception):
-    """Базовый класс ошибок торгового модуля"""
-    pass
-
-class BrokerType(Enum):
-    TINKOFF = 'tinkoff'
-    MOEX = 'moex'
-    BINANCE = 'binance'
-
-@dataclass
-class Order:
-    """Модель торгового ордера"""
-    order_id: str
-    ticker: str
-    order_type: OrderType
-    price: float
-    quantity: int
-    timestamp: datetime
-    status: OrderStatus = OrderStatus.PENDING
-    filled_quantity: int = 0
-    avg_fill_price: Optional[float] = None
-    reason: Optional[str] = None
-
-@dataclass
-class ExecutionReport:
-    """Отчет об исполнении ордера"""
-    order_id: str
-    execution_time: datetime
-    filled_quantity: int
-    fill_price: float
-    commission: float
-    remaining_quantity: int
 
 # Настройка логгера модуля
 _logger = logging.getLogger(__name__)

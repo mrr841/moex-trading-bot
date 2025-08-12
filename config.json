@@ -55,8 +55,7 @@
       "timeout": "${MOEX_API_TIMEOUT}"
     },
     "tinkoff": {
-      "sandbox_token": "${TINKOFF_SANDBOX_TOKEN}",
-      "real_token": "${TINKOFF_REAL_TOKEN}",
+      "token": "${TINKOFF_SANDBOX_TOKEN}",
       "account_id": "${TINKOFF_ACCOUNT_ID}"
     }
   },

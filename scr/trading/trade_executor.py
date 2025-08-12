@@ -1,22 +1,62 @@
-import asyncio
-from typing import Dict, List, Optional, Union
-import logging
+from enum import Enum, auto
+from dataclasses import dataclass
 from datetime import datetime
+from typing import Dict, List, Optional
+import asyncio
+import logging
 import aiohttp
-from dataclasses import asdict
-import json
 
-from src.trading import (
-    Order,
-    ExecutionReport,
-    OrderStatus,
-    OrderType,
-    BrokerType,
-    TradeError
-)
-from src.data.data_handler import DataHandler
+from ..data.data_handler import DataHandler
 
 logger = logging.getLogger(__name__)
+
+class OrderStatus(Enum):
+    PENDING = 'pending'
+    FILLED = 'filled'
+    PARTIALLY_FILLED = 'partially_filled'
+    CANCELLED = 'cancelled'
+    REJECTED = 'rejected'
+    FAILED = 'failed'
+
+class OrderType(Enum):
+    BUY = 'buy'
+    SELL = 'sell'
+
+class BrokerType(Enum):
+    TINKOFF = auto()
+    MOEX = auto()
+    BINANCE = auto()
+    SANDBOX = auto()
+    REAL = auto()
+    PAPER = auto()
+
+class TradeError(Exception):
+    """Базовый класс ошибок торгового модуля"""
+    pass
+
+@dataclass
+class Order:
+    """Модель торгового ордера"""
+    order_id: str
+    ticker: str
+    order_type: OrderType
+    price: float
+    quantity: int
+    timestamp: datetime
+    status: OrderStatus = OrderStatus.PENDING
+    filled_quantity: int = 0
+    avg_fill_price: Optional[float] = None
+    reason: Optional[str] = None
+
+@dataclass
+class ExecutionReport:
+    """Отчет об исполнении ордера"""
+    order_id: str
+    execution_time: datetime
+    filled_quantity: int
+    fill_price: float
+    commission: float
+    remaining_quantity: int
 
 class TradeExecutor:
     """Исполнитель торговых операций с поддержкой мультиброкерского API"""
@@ -65,14 +105,11 @@ class TradeExecutor:
             TradeError: В случае ошибки исполнения
         """
         try:
-            # Валидация ордера
             if not self._validate_order(order):
                 raise TradeError("Invalid order parameters")
 
-            # Регистрация ордера
             self._register_order(order)
 
-            # Исполнение в зависимости от типа брокера
             if self.broker_type == BrokerType.TINKOFF:
                 report = await self._execute_tinkoff_order(order)
             elif self.broker_type == BrokerType.MOEX:
@@ -80,7 +117,6 @@ class TradeExecutor:
             else:
                 raise TradeError(f"Unsupported broker: {self.broker_type}")
 
-            # Обновление статуса ордера
             self._update_order_status(report)
 
             logger.info(f"Order executed: {order.order_id} {order.ticker} "
@@ -102,7 +138,7 @@ class TradeExecutor:
             "price": self._apply_slippage(order.price),
             "direction": "ORDER_DIRECTION_BUY" if order.order_type == OrderType.BUY else "ORDER_DIRECTION_SELL",
             "accountId": self.config['api_settings']['tinkoff']['account_id'],
-            "orderType": "ORDER_TYPE_LIMIT",  # Можно добавить другие типы
+            "orderType": "ORDER_TYPE_LIMIT",
             "orderId": order.order_id
         }
 
@@ -123,8 +159,7 @@ class TradeExecutor:
 
     async def _execute_moex_order(self, order: Order) -> ExecutionReport:
         """Исполнение ордера через MOEX API (имитация)"""
-        # В реальной реализации нужно использовать MOEX ISS API
-        await asyncio.sleep(0.1)  # Имитация задержки
+        await asyncio.sleep(0.1)
         
         return ExecutionReport(
             order_id=order.order_id,

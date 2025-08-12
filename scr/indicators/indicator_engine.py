@@ -15,15 +15,6 @@ def calculate_adx(
 ) -> pd.Series:
     """
     Расчет Average Directional Index (ADX)
-    
-    Args:
-        high: Цена high
-        low: Цена low
-        close: Цена close
-        window: Период расчета
-        
-    Returns:
-        pd.Series: Значения ADX
     """
     try:
         adx = talib.ADX(high, low, close, timeperiod=window)
@@ -40,15 +31,6 @@ def calculate_atr(
 ) -> pd.Series:
     """
     Расчет Average True Range (ATR)
-    
-    Args:
-        high: Цена high
-        low: Цена low
-        close: Цена close
-        window: Период расчета
-        
-    Returns:
-        pd.Series: Значения ATR
     """
     try:
         atr = talib.ATR(high, low, close, timeperiod=window)
@@ -64,14 +46,6 @@ def calculate_ema(
 ) -> pd.Series:
     """
     Расчет Exponential Moving Average (EMA)
-    
-    Args:
-        prices: Временной ряд цен
-        window: Период расчета
-        adjust: Использовать adjust формулу
-        
-    Returns:
-        pd.Series: Значения EMA
     """
     try:
         return prices.ewm(span=window, adjust=adjust).mean()
@@ -85,13 +59,6 @@ def calculate_rsi(
 ) -> pd.Series:
     """
     Расчет Relative Strength Index (RSI)
-    
-    Args:
-        prices: Временной ряд цен
-        window: Период расчета
-        
-    Returns:
-        pd.Series: Значения RSI
     """
     try:
         rsi = talib.RSI(prices, timeperiod=window)
@@ -107,14 +74,6 @@ def calculate_bollinger_bands(
 ) -> Tuple[pd.Series, pd.Series, pd.Series]:
     """
     Расчет Bollinger Bands
-    
-    Args:
-        prices: Временной ряд цен
-        window: Период расчета
-        num_std: Количество стандартных отклонений
-        
-    Returns:
-        Tuple: (upper_band, middle_band, lower_band)
     """
     try:
         sma = prices.rolling(window=window).mean()
@@ -139,14 +98,6 @@ def calculate_volume_profile(
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
     Расчет Volume Profile
-    
-    Args:
-        prices: Временной ряд цен
-        volumes: Временной ряд объемов
-        bins: Количество уровней
-        
-    Returns:
-        Tuple: (уровни цен, объемы на уровнях)
     """
     try:
         hist, bin_edges = np.histogram(
@@ -167,15 +118,6 @@ def calculate_macd(
 ) -> Tuple[pd.Series, pd.Series, pd.Series]:
     """
     Расчет MACD (Moving Average Convergence Divergence)
-    
-    Args:
-        prices: Временной ряд цен
-        fast_window: Быстрая EMA
-        slow_window: Медленная EMA
-        signal_window: Сигнальная линия
-        
-    Returns:
-        Tuple: (MACD, Signal, Histogram)
     """
     try:
         macd, signal, hist = talib.MACD(
@@ -204,14 +146,6 @@ def calculate_support_resistance(
 ) -> Tuple[Optional[float], Optional[float]]:
     """
     Расчет уровней поддержки и сопротивления
-    
-    Args:
-        prices: Временной ряд цен
-        window: Размер окна анализа
-        tolerance: Допуск для определения уровней
-        
-    Returns:
-        Tuple: (support, resistance)
     """
     try:
         if len(prices) < window:
@@ -223,7 +157,6 @@ def calculate_support_resistance(
         support = rolling_min.iloc[-1]
         resistance = rolling_max.iloc[-1]
         
-        # Уточнение уровней с учетом допуска
         recent_prices = prices.iloc[-window:]
         support_candidates = recent_prices[recent_prices <= support * (1 + tolerance)]
         resistance_candidates = recent_prices[recent_prices >= resistance * (1 - tolerance)]
@@ -235,3 +168,24 @@ def calculate_support_resistance(
     except Exception as e:
         logger.error(f"Support/Resistance calculation error: {str(e)}")
         return None, None
+
+def calculate_sma(
+    prices: pd.Series,
+    window: int
+) -> pd.Series:
+    """
+    Расчет Simple Moving Average (SMA)
+    
+    Args:
+        prices: Временной ряд цен
+        window: Период расчета
+    
+    Returns:
+        pd.Series: Значения SMA
+    """
+    try:
+        sma = prices.rolling(window=window).mean()
+        return sma
+    except Exception as e:
+        logger.error(f"SMA calculation error: {str(e)}")
+        return pd.Series(np.nan, index=prices.index)

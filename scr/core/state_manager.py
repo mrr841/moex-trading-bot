@@ -18,8 +18,28 @@ class OrderType(Enum):
     STOP_LOSS = auto()
     TAKE_PROFIT = auto()
 
+class BotState(Enum):
+    STARTING = auto()
+    RUNNING = auto()
+    PAUSED = auto()
+    SHUTTING_DOWN = auto()
+    ERROR = auto()
+
+@dataclass
+class Order:
+    """Модель торгового ордера"""
+    order_id: str
+    ticker: str
+    order_type: OrderType
+    price: float
+    volume: int
+    timestamp: datetime
+    executed: bool = False
+    reason: Optional[str] = None
+
 @dataclass
 class Position:
+    """Модель торговой позиции"""
     ticker: str
     entry_price: float
     current_price: float
@@ -28,24 +48,7 @@ class Position:
     open_time: datetime
     close_time: Optional[datetime] = None
     pnl: float = 0.0
-    orders: List['Order'] = field(default_factory=list)
-
-@dataclass
-class Order:
-    order_id: str
-    ticker: str
-    order_type: OrderType
-    price: float
-    volume: int
-    timestamp: datetime
-    executed: bool = False
-
-class BotState(Enum):
-    STARTING = auto()
-    RUNNING = auto()
-    PAUSED = auto()
-    SHUTTING_DOWN = auto()
-    ERROR = auto()
+    orders: List[Order] = field(default_factory=list)
 
 class StateManager:
     """Менеджер состояния торгового бота"""
@@ -64,25 +67,32 @@ class StateManager:
         
     @property
     def current_state(self) -> BotState:
+        """Текущее состояние бота (только для чтения)"""
         return self._state
         
-    @current_state.setter
-    def current_state(self, new_state: BotState):
-        logger.info(f"State changed: {self._state.name} -> {new_state.name}")
-        self._state = new_state
-        asyncio.create_task(self._state_handlers[new_state]())
+    async def set_state(self, new_state: BotState) -> None:
+        """Безопасная установка нового состояния"""
+        async with self._lock:
+            if self._state == new_state:
+                return
+                
+            logger.info(f"State changing: {self._state.name} -> {new_state.name}")
+            self._state = new_state
+            await self._state_handlers[new_state]()
 
-    async def update(self, execution_results: List[Order]):
+    async def update(self, execution_results: List[Order]) -> None:
         """Обновление состояния на основе исполненных ордеров"""
         async with self._lock:
             for order in execution_results:
                 if not order.executed:
+                    logger.info(f"Order ignored: {order.order_id} {order.ticker} "
+                              f"{order.order_type.name} - {order.reason or 'not executed'}")
                     continue
                     
                 if order.order_type in (OrderType.BUY, OrderType.SELL):
                     await self._update_positions(order)
 
-    async def _update_positions(self, order: Order):
+    async def _update_positions(self, order: Order) -> None:
         """Обновление позиций на основе ордера"""
         position = self.positions.get(order.ticker)
         
@@ -95,6 +105,7 @@ class StateManager:
                      order.price * order.volume) / total_volume
                 )
                 position.volume = total_volume
+                position.current_price = order.price
             else:
                 # Новая позиция
                 self.positions[order.ticker] = Position(
@@ -107,11 +118,24 @@ class StateManager:
                 )
                 
         elif order.order_type == OrderType.SELL:
-            if position and position.status == PositionStatus.OPEN:
-                # Закрытие позиции
+            if not position or position.status != PositionStatus.OPEN:
+                logger.warning(f"Attempt to close non-existent position: {order.ticker}")
+                return
+                
+            closed_volume = min(order.volume, position.volume)
+            pnl = (order.price - position.entry_price) * closed_volume
+            
+            if closed_volume == position.volume:
+                # Полное закрытие
                 position.status = PositionStatus.CLOSED
                 position.close_time = order.timestamp
-                position.pnl = (order.price - position.entry_price) * order.volume
+                position.pnl = pnl
+                position.current_price = order.price
+            else:
+                # Частичное закрытие
+                position.volume -= closed_volume
+                position.pnl += pnl
+                position.current_price = order.price
                 
         logger.debug(f"Position updated: {order.ticker} {order.order_type.name}")
 
@@ -128,32 +152,32 @@ class StateManager:
         async with self._lock:
             return self.positions.get(ticker)
 
-    async def reset(self):
+    async def reset(self) -> None:
         """Сброс состояния (для тестов)"""
         async with self._lock:
             self.positions.clear()
-            self.current_state = BotState.STARTING
+            await self.set_state(BotState.STARTING)
 
-    async def _handle_starting(self):
+    async def _handle_starting(self) -> None:
         """Обработчик состояния STARTING"""
         logger.info("Initializing state manager...")
 
-    async def _handle_running(self):
+    async def _handle_running(self) -> None:
         """Обработчик состояния RUNNING"""
         logger.info("Bot is now running")
 
-    async def _handle_paused(self):
+    async def _handle_paused(self) -> None:
         """Обработчик состояния PAUSED"""
         logger.warning("Bot paused - no new positions will be opened")
 
-    async def _handle_shutting_down(self):
+    async def _handle_shutting_down(self) -> None:
         """Обработчик состояния SHUTTING_DOWN"""
         logger.info("Shutting down state manager...")
         open_positions = await self.get_open_positions()
         if open_positions:
             logger.warning(f"{len(open_positions)} positions remain open")
 
-    async def _handle_error(self):
+    async def _handle_error(self) -> None:
         """Обработчик состояния ERROR"""
         logger.error("Bot entered error state!")
         open_positions = await self.get_open_positions()
