@@ -1,0 +1,74 @@
+{
+  "mode": "paper",
+  "api_source": "tinkoff_paper",
+  "tickers": ["SBER", "GAZP", "LKOH", "GMKN", "VTBR"],
+  "max_active_positions": 3,
+  "timeframe": "5m",
+  
+  "logging": {
+    "level": "${LOG_LEVEL}",
+    "max_files": "${LOG_BACKUP_COUNT}",
+    "file_size_mb": "${LOG_MAX_SIZE}"
+  },
+  
+  "risk_management": {
+    "stop_loss": 2.0,
+    "trailing_stop": 1.5,
+    "max_leverage": 3,
+    "position_size": 0.2,
+    "daily_loss_limit": "${DAILY_LOSS_LIMIT}",
+    "max_positions": "${MAX_POSITIONS}"
+  },
+
+  "market_regimes": {
+    "sideways": {
+      "profit_target": 0.5,
+      "trailing_stop": 0.3
+    },
+    "uptrend": {
+      "trailing_stop": 1.0,
+      "pullback_exit": 2.0
+    },
+    "downtrend": {
+      "accumulation_step": 5.0,
+      "max_averaging": 5
+    },
+    "leverage": {
+      "min_success_probability": 0.7,
+      "max_hold_minutes": 120
+    },
+    "safe": {
+      "imoex_drop_threshold": 3.0
+    }
+  },
+
+  "telegram": {
+    "enabled": true,
+    "token": "${TELEGRAM_BOT_TOKEN}",
+    "chat_id": "${TELEGRAM_CHAT_ID}",
+    "alerts_enabled": true
+  },
+
+  "api_settings": {
+    "moex": {
+      "base_url": "https://iss.moex.com/iss",
+      "timeout": "${MOEX_API_TIMEOUT}"
+    },
+    "tinkoff": {
+      "sandbox_token": "${TINKOFF_SANDBOX_TOKEN}",
+      "real_token": "${TINKOFF_REAL_TOKEN}",
+      "account_id": "${TINKOFF_ACCOUNT_ID}"
+    }
+  },
+
+  "overnight_rule": {
+    "enabled": true,
+    "close_leverage_before_minutes": 30
+  },
+
+  "schedule": {
+    "market_open": "09:50",
+    "market_close": "18:40",
+    "signal_check": "5m"
+  }
+}

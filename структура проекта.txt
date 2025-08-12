@@ -1,0 +1,63 @@
+moex_trading_bot/
+│
+├── config/
+│   ├── config.json              # Основной конфигурационный файл
+│   └── logging_config.yaml      # Конфигурация логгера
+│
+├── data/                        # Кэш исторических данных
+│   ├── historical/
+│   └── orderbooks/
+│
+├── logs/                        # Логи приложения
+│   ├── bot.log
+│   └── errors.log
+│
+├── reports/                     # Отчёты о тестировании
+│   ├── backtest/
+│   └── performance/
+│
+├── src/
+│   ├── core/
+│   │   ├── __init__.py
+│   │   ├── bot.py               # Основной класс бота
+│   │   └── state_manager.py     # Управление состоянием
+│   │
+│   ├── data/
+│   │   ├── __init__.py
+│   │   ├── data_handler.py      # Работа с API (MOEX/Tinkoff)
+│   │   └── cache_manager.py     # Кэширование данных
+│   │
+│   ├── indicators/
+│   │   ├── __init__.py
+│   │   ├── indicator_engine.py  # Расчёт индикаторов
+│   │   └── custom_indicators.py # Пользовательские индикаторы
+│   │
+│   ├── managers/
+│   │   ├── __init__.py
+│   │   ├── risk_manager.py      # Управление рисками
+│   │   ├── strategy_manager.py  # Генерация сигналов
+│   │   ├── regime_detector.py   # Определение режима рынка
+│   │   └── overnight_manager.py # Overnight правила
+│   │
+│   ├── trading/
+│   │   ├── __init__.py
+│   │   └── trade_executor.py    # Исполнение сделок
+│   │
+│   ├── utils/
+│   │   ├── __init__.py
+│   │   ├── reporting.py         # Генерация отчётов
+│   │   ├── telegram_interface.py# Telegram бот
+│   │   └── helpers.py           # Вспомогательные функции
+│   │
+│   └── __init__.py
+│
+├── tests/                       # Тесты
+│   ├── unit/
+│   └── integration/
+│
+├── .env                         # Переменные окружения
+├── .gitignore
+├── README.md                    # Инструкция по установке
+├── requirements.txt             # Зависимости
+├── main.py                      # Точка входа
+└── run_bot.sh                   # Скрипт запуска

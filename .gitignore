@@ -1,0 +1,92 @@
+### Python ###
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Environment files
+.env
+.env.*
+!.env.example  # Пример конфига можно включить
+.env.local
+
+# Logs and databases
+*.log
+*.sqlite
+*.sqlite3
+*.dump
+
+# Data directories
+/data/
+/logs/
+/reports/
+/temp/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*.sublime-*
+
+# Build artifacts
+/build/
+/dist/
+/out/
+*.egg-info/
+*.egg
+*.manifest
+*.spec
+
+# Testing
+/.pytest_cache/
+/.tox/
+/coverage.xml
+/.coverage
+/htmlcov/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Package files
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environment
+/venv/
+/ENV/
+/env/
+
+# System files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Custom project files
+/test_data/
+*.pkl
+*.parquet  # Исключаем кэшированные данные
+
+# Backup files
+*.bak
+*.tmp
+
+# Security
+/secrets/
+/keys/
+/certs/
+
+# Documentation
+/docs/_build/
+/site/
+
+### Special cases ###
+# Исключения (разрешаем пустые директории)
+!.gitkeep
+!data/.gitkeep
+!logs/.gitkeep
+!reports/.gitkeep
